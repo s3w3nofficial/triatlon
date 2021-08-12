@@ -1,0 +1,34 @@
+@page "/"
+@using triatlon.Data
+@using triatlon.Services
+@inject EntryRepository EntryRepository
+@inject NavigationManager NavigationManager
+
+<h1>Entries</h1>
+
+<ul>
+@foreach (var entry in EntryRepository.GetAll())
+{
+    <li>Name: @entry.Name <button class="btn btn-primary" @onclick="() => EditName(entry.Id)"><i class="oi oi-pencil"></i></button></li>
+    <li>Number: @entry.Number</li>
+    <ul>
+        @foreach (var time in entry.Times.OrderBy(a => a.Value))
+        {
+            <li>@time.Value.ToString("HH:mm:ss") <button @onclick="() => Delete(time.Id)" class="btn btn-danger"><i class="oi oi-trash"></i></button></li>
+        }
+    </ul>
+}
+</ul>
+
+@code {
+    public void Delete(Guid id)
+    {
+        EntryRepository.DeleteTime(id);
+        NavigationManager.NavigateTo("/");
+    }
+
+    public void EditName(Guid id)
+    {
+        NavigationManager.NavigateTo($"/editname/{id}");
+    }
+}

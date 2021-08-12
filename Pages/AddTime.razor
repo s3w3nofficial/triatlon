@@ -1,0 +1,29 @@
+@page "/addtime"
+@using triatlon.Services
+@using triatlon.Data
+@inject EntryRepository EntryRepository
+@inject NavigationManager NavigationManager
+
+<h1>Add time</h1>
+
+<div class="container">
+    <div class="form-group">
+        <label for="number">Number</label>
+        <input type="number" min="0" @bind-value="Number" name="number" id="number" class="form-control">
+    </div>
+    <div class="form-group">
+        <label for="time">Time</label>
+        <input type="time" @bind-value="Time" name="time" id="time" step="1" class="form-control">
+    </div>
+    <button class="btn btn-primary" @onclick="Save">Add</button>
+</div>
+
+@code {
+    public int Number { get;set; } = 0;
+    public DateTime Time { get; set; } = DateTime.UtcNow;
+    public void Save() 
+    {
+        this.EntryRepository.AddTime(Number, Time);
+        NavigationManager.NavigateTo("/");
+    }
+}

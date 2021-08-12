@@ -1,0 +1,27 @@
+@page "/editname/{id:guid}"
+@using triatlon.Data
+@using triatlon.Services
+@inject EntryRepository EntryRepository
+@inject NavigationManager NavigationManager
+
+<div class="container">
+    <div class="form-group">
+        <label for="name">
+            Name
+        </label>
+        <input class="form-control" @bind-value="Name" name="name" id="name">
+    </div>
+    <button class="btn btn-primary" @onclick="() => Update()">Update</button>
+</div>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+    public string Name { get; set; }
+
+    public void Update() 
+    {
+        EntryRepository.UpdateName(Id, Name);
+        NavigationManager.NavigateTo("/");
+    }
+}
