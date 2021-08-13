@@ -1,18 +1,23 @@
 @page "/"
+@using System.IO
+@using OfficeOpenXml
+@using OfficeOpenXml.Style
 @using triatlon.Data
 @using triatlon.Services
 @inject EntryRepository EntryRepository
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 
 <h1>Entries</h1>
+<button class="btn btn-success" @onclick="() => Export()">Export</button>
 
 <ul>
-@foreach (var entry in EntryRepository.GetAll())
+@foreach (var entry in Entries)
 {
     <li>Name: @entry.Name <button class="btn btn-primary" @onclick="() => EditName(entry.Id)"><i class="oi oi-pencil"></i></button></li>
     <li>Number: @entry.Number</li>
     <ul>
-        @foreach (var time in entry.Times.OrderBy(a => a.Value))
+        @foreach (var time in entry.Times)
         {
             <li>@time.Value.ToString("HH:mm:ss") <button @onclick="() => Delete(time.Id)" class="btn btn-danger"><i class="oi oi-trash"></i></button></li>
         }
@@ -21,6 +26,14 @@
 </ul>
 
 @code {
+    public List<Entry> Entries { 
+        get {
+            var data = EntryRepository.GetAll();
+            data.ForEach(e => e.Times = e.Times.OrderBy(t => t.Value).ToList());
+            return data;
+        }
+    }
+
     public void Delete(Guid id)
     {
         EntryRepository.DeleteTime(id);
@@ -30,5 +43,87 @@
     public void EditName(Guid id)
     {
         NavigationManager.NavigateTo($"/editname/{id}");
+    }
+
+    public void Export()
+    {
+        // Data integrity check
+        foreach (var entry in Entries)
+        {
+            if (String.IsNullOrEmpty(entry.Name))
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Not all names are set");
+                return;
+            }
+
+            if (entry.Times.Count < 6)
+            {
+                JSRuntime.InvokeVoidAsync("alert", "Some entries does not contain all times");
+                return;
+            }
+
+            if (entry.Times.Count > 6)
+            {
+
+                JSRuntime.InvokeVoidAsync("alert", "Some entries contain to many times");
+                return;
+            }
+        }
+
+        var stream = new MemoryStream();
+        using var package = new ExcelPackage(stream);       
+        var workSheet = package.Workbook.Worksheets.Add("Main");
+        var workSheet2 = package.Workbook.Worksheets.Add("Results");
+        workSheet.Row(1).Height = 20;
+        workSheet.Row(1).Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+        workSheet.Row(1).Style.Font.Bold = true;
+        workSheet.Cells[1, 1].Value = "Jmeno";
+        workSheet.Cells[1, 2].Value = "Cislo";
+        workSheet.Cells[1, 3].Value = "Start 1";
+        workSheet.Cells[1, 4].Value = "Depo 1";
+        workSheet.Cells[1, 5].Value = "Start 2";
+        workSheet.Cells[1, 6].Value = "Depo 2";
+        workSheet.Cells[1, 7].Value = "Start 3";
+        workSheet.Cells[1, 8].Value = "Konec";
+
+        workSheet2.Row(1).Height = 20;
+        workSheet2.Row(1).Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+        workSheet2.Row(1).Style.Font.Bold = true;
+        workSheet2.Cells[1, 1].Value = "Jmeno";
+        workSheet2.Cells[1, 2].Value = "Cislo";
+        workSheet2.Cells[1, 3].Value = "Plavani";
+        workSheet2.Cells[1, 4].Value = "Beh";
+        workSheet2.Cells[1, 5].Value = "Kolo";
+        workSheet2.Cells[1, 6].Value = "Celkovy cas";
+
+        int rowIndex = 2;
+        foreach (var entry in Entries)
+        {
+            workSheet.Cells[rowIndex, 1].Value = entry.Name;
+            workSheet.Cells[rowIndex, 2].Value = entry.Number;
+            workSheet.Cells[rowIndex, 3].Value = entry.Times[0].Value.ToString("HH:mm:ss");
+            workSheet.Cells[rowIndex, 4].Value = entry.Times[1].Value.ToString("HH:mm:ss");
+            workSheet.Cells[rowIndex, 5].Value = entry.Times[2].Value.ToString("HH:mm:ss");
+            workSheet.Cells[rowIndex, 6].Value = entry.Times[3].Value.ToString("HH:mm:ss");
+            workSheet.Cells[rowIndex, 7].Value = entry.Times[4].Value.ToString("HH:mm:ss");
+            workSheet.Cells[rowIndex, 8].Value = entry.Times[5].Value.ToString("HH:mm:ss");
+
+            var plavani = entry.Times[1].Value - entry.Times[0].Value;
+            var kolo = entry.Times[3].Value - entry.Times[2].Value;
+            var beh = entry.Times[5].Value - entry.Times[4].Value;
+            workSheet2.Cells[rowIndex, 1].Value = entry.Name;
+            workSheet2.Cells[rowIndex, 2].Value = entry.Number;
+            workSheet2.Cells[rowIndex, 3].Value = plavani.ToString(@"hh\:mm\:ss");
+            workSheet2.Cells[rowIndex, 4].Value = kolo.ToString(@"hh\:mm\:ss");
+            workSheet2.Cells[rowIndex, 5].Value = beh.ToString(@"hh\:mm\:ss");
+            workSheet2.Cells[rowIndex, 6].Value = 
+                (plavani + kolo + beh).ToString(@"hh\:mm\:ss");
+
+            rowIndex++;   
+        }
+        
+        JSRuntime.InvokeVoidAsync("saveAsFile", 
+            $"exported_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.xlsx", 
+            Convert.ToBase64String(package.GetAsByteArray()));
     }
 }
